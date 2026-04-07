@@ -117,18 +117,200 @@ claude mcp add ae-agent -- node /你的路径/ae-mcp-server/dist/src/index.js
 除了在 Claude 里对话，也可以在终端直接查询 AE 信息：
 
 ```bash
-# 检查连接
+ae-cli check                                      # 检查 AE 连接状态
+ae-cli context                                    # 当前合成 + 选中图层
+ae-cli layers "合成名称"                           # 图层列表
+ae-cli layers "合成名称" --detail with-effects    # 图层列表（含效果）
+ae-cli layer "合成名称" 3 --detail full           # 单图层完整详情（效果 + 表达式）
+ae-cli call <工具名> --args '{"参数":"值"}'        # 直接调用任意工具
+```
+
+→ [完整 CLI 命令参考](#cli-命令完整参考)
+
+---
+
+## AI 工具能力一览
+
+以下是 AI 可以直接调用的工具，分类列出高频用途。
+
+**读取与分析**
+
+| 工具 | 用途 |
+|------|------|
+| `get_active_context` | 获取当前合成、选中图层和选中属性 |
+| `get_comp_tree` | 获取合成的图层树（支持 basic / timing / with-effects / full） |
+| `get_layer_info` | 获取单图层详情，含效果列表和表达式内容 |
+| `get_comp_structure_summary` | 深度分析合成结构，输出命名规律和表达式使用情况 |
+| `check_ae_connection` | 检查 AE 与插件面板是否正常连接 |
+| `search_ae_tools` | 用关键词搜索可用工具（AI 自动调用） |
+
+**图层操作**
+
+| 工具 | 用途 |
+|------|------|
+| `create_text_layer` | 创建文字图层，支持字体大小、颜色、位置 |
+| `create_solid_layer` | 创建纯色图层 |
+| `create_null_layer` | 创建空对象图层 |
+| `set_layer_parent` | 设置图层的父子关系 |
+| `batch_rename_layers` | 按规则批量重命名图层（前缀/后缀/查找替换） |
+| `precompose_layers` | 将选中图层预合成 |
+| `create_composition` | 新建合成 |
+| `clone_comp_structure` | 按源合成克隆结构到新合成 |
+
+**动画与属性**
+
+| 工具 | 用途 |
+|------|------|
+| `apply_expression` | 为属性应用自定义表达式 |
+| `apply_expression_preset` | 应用预设表达式（wiggle / elastic / bounce / loop 等） |
+| `set_property_value` | 设置任意属性值（位置、缩放、不透明度等） |
+| `set_transform` | 批量设置变换属性（位置、缩放、旋转、锚点） |
+| `add_keyframes_batch` | 批量添加关键帧，支持设置缓动 |
+
+**效果**
+
+| 工具 | 用途 |
+|------|------|
+| `add_effect` | 为图层添加效果（按 matchName 指定） |
+
+→ [完整工具参数说明](#工具参数完整参考)
+
+---
+
+## CLI 命令完整参考
+
+```bash
+# 连接检测
 ae-cli check
 
-# 获取当前打开的合成和选中图层
+# 当前状态（合成 + 选中图层 + 选中属性）
 ae-cli context
 
-# 查看合成里的所有图层
-ae-cli layers "合成名称"
+# 图层树
+ae-cli layers "<合成名>"
+ae-cli layers "<合成名>" --detail basic          # 默认：index / name / type / parent
+ae-cli layers "<合成名>" --detail timing         # + 入出点、startTime
+ae-cli layers "<合成名>" --detail with-effects   # + 每层效果列表
+ae-cli layers "<合成名>" --detail with-expressions  # + 有表达式的属性
+ae-cli layers "<合成名>" --detail full           # 以上全部
 
-# 查看某个图层的完整信息（包括效果和表达式）
-ae-cli layer "合成名称" 3 --detail full
+# 单图层详情
+ae-cli layer "<合成名>" <图层序号>
+ae-cli layer "<合成名>" <图层序号> --detail full  # 含效果 props + 完整表达式
+
+# 通用工具调用
+ae-cli call <工具名> --args '<JSON参数>'
+ae-cli call get_active_context --args '{}'
+ae-cli call set_property_value --args '{"compName":"Main","layerIndex":1,"propertyMatchName":"ADBE Opacity","value":50}'
+
+# 输出格式
+ae-cli layers "Main" --json     # 压缩 JSON，适合管道处理
+ae-cli layers "Main" --silent   # 只输出错误
 ```
+
+**退出码：**
+- `0` 成功
+- `1` AE 执行错误
+- `2` 参数错误
+- `3` 连接超时（AE 未开或面板未启动）
+
+---
+
+## 工具参数完整参考
+
+<details>
+<summary>展开查看所有工具的参数说明</summary>
+
+**get_comp_tree**
+```json
+{
+  "compName": "Main_Title",
+  "detail": "basic | timing | with-effects | with-expressions | full"
+}
+```
+
+**get_layer_info**
+```json
+{
+  "compName": "Main_Title",
+  "layerIndex": 1,
+  "detail": "basic | timing | with-effects | with-expressions | full"
+}
+```
+
+**create_text_layer**
+```json
+{
+  "compName": "Main_Title",
+  "text": "Hello",
+  "fontSize": 72,
+  "color": [1, 1, 1],
+  "position": [960, 540]
+}
+```
+
+**apply_expression_preset**
+```json
+{
+  "compName": "Main_Title",
+  "layerIndex": 1,
+  "propertyMatchName": "ADBE Position",
+  "preset": "wiggle | elastic | bounce | loop_cycle | loop_pingpong"
+}
+```
+
+**add_keyframes_batch**
+```json
+{
+  "compName": "Main_Title",
+  "layerIndex": 1,
+  "propertyMatchName": "ADBE Position",
+  "keyframes": [
+    { "time": 0, "value": [960, 540] },
+    { "time": 1, "value": [1160, 540] }
+  ],
+  "easing": "ease_out"
+}
+```
+
+**batch_rename_layers**
+```json
+{
+  "compName": "Main_Title",
+  "targetIndices": [1, 2, 3],
+  "prefix": "BG_",
+  "suffix": "_V2",
+  "findText": "Old",
+  "replaceText": "New"
+}
+```
+
+**clone_comp_structure**
+```json
+{
+  "sourceCompName": "Template_Main",
+  "newCompName": "Template_V2",
+  "width": 1920,
+  "height": 1080,
+  "duration": 8,
+  "frameRate": 30
+}
+```
+
+**set_transform**
+```json
+{
+  "compName": "Main_Title",
+  "layerIndex": 1,
+  "position": [960, 540],
+  "scale": [100, 100],
+  "rotation": 0,
+  "opacity": 100,
+  "anchorPoint": [0, 0]
+}
+```
+
+</details>
 
 ---
 

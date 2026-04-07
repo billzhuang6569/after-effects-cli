@@ -3,3 +3,11 @@
 node_modules/
 ae-mcp-server/dist/
 *.local.json
+
+# 开发内部文档（不对外发布）
+.trae/
+.claude/
+rules/
+docs/
+AGENT.md
+scripts/
