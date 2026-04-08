@@ -12,6 +12,54 @@ function createIo() {
 }
 
 describe("ae-cli", () => {
+  it("prints help when command is help", async () => {
+    const io = createIo();
+    const initialize = vi.fn(async () => undefined);
+    const executeTool = vi.fn();
+
+    const exitCode = await runCli(["help"], io, {
+      createBridge: () => ({ initialize }),
+      executeTool
+    });
+
+    expect(exitCode).toBe(0);
+    expect(initialize).not.toHaveBeenCalled();
+    expect(executeTool).not.toHaveBeenCalled();
+    expect(io.stdout.write).toHaveBeenCalledWith(expect.stringContaining("AE CLI — 用命令行操作 After Effects"));
+  });
+
+  it("prints help when command is --help", async () => {
+    const io = createIo();
+    const initialize = vi.fn(async () => undefined);
+    const executeTool = vi.fn();
+
+    const exitCode = await runCli(["--help"], io, {
+      createBridge: () => ({ initialize }),
+      executeTool
+    });
+
+    expect(exitCode).toBe(0);
+    expect(initialize).not.toHaveBeenCalled();
+    expect(executeTool).not.toHaveBeenCalled();
+    expect(io.stdout.write).toHaveBeenCalledWith(expect.stringContaining("命令："));
+  });
+
+  it("prints help when no arguments are provided", async () => {
+    const io = createIo();
+    const initialize = vi.fn(async () => undefined);
+    const executeTool = vi.fn();
+
+    const exitCode = await runCli([], io, {
+      createBridge: () => ({ initialize }),
+      executeTool
+    });
+
+    expect(exitCode).toBe(0);
+    expect(initialize).not.toHaveBeenCalled();
+    expect(executeTool).not.toHaveBeenCalled();
+    expect(io.stdout.write).toHaveBeenCalledWith(expect.stringContaining("用法："));
+  });
+
   it("runs check command and prints JSON", async () => {
     const io = createIo();
     const initialize = vi.fn(async () => undefined);

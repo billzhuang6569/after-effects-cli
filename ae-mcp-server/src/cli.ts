@@ -18,6 +18,19 @@ interface CliDeps {
   executeTool: typeof executeTool;
 }
 
+type ParsedCliArgs =
+  | {
+      kind: "help";
+      helpText: string;
+    }
+  | {
+      kind: "tool";
+      toolName: string;
+      args: Record<string, unknown>;
+      compactJson: boolean;
+      silent: boolean;
+    };
+
 const DEFAULT_IO: CliIo = {
   stdout: process.stdout,
   stderr: process.stderr
@@ -31,6 +44,10 @@ const DEFAULT_DEPS: CliDeps = {
 export async function runCli(argv: string[], io: CliIo = DEFAULT_IO, deps: CliDeps = DEFAULT_DEPS): Promise<number> {
   try {
     const parsed = parseCliArgs(argv);
+    if (parsed.kind === "help") {
+      io.stdout.write(`${parsed.helpText}\n`);
+      return 0;
+    }
     const bridge = deps.createBridge();
     await bridge.initialize();
     const result = await deps.executeTool(bridge as BridgeClient, parsed.toolName, parsed.args);
@@ -57,28 +74,23 @@ export async function runCli(argv: string[], io: CliIo = DEFAULT_IO, deps: CliDe
   }
 }
 
-function parseCliArgs(argv: string[]): {
-  toolName: string;
-  args: Record<string, unknown>;
-  compactJson: boolean;
-  silent: boolean;
-} {
+function parseCliArgs(argv: string[]): ParsedCliArgs {
   const flags = readGlobalFlags(argv);
   const args = flags.argv;
   const command = args[0];
 
-  if (!command) {
-    throw new Error("Usage: ae-cli <check|context|layers|layer|call> [options]");
+  if (!command || command === "help" || command === "--help") {
+    return { kind: "help", helpText: getHelpText() };
   }
 
   if (command === "check") {
     ensureNoExtraArgs(args.slice(1), "check");
-    return { toolName: "check_ae_connection", args: {}, compactJson: flags.compactJson, silent: flags.silent };
+    return { kind: "tool", toolName: "check_ae_connection", args: {}, compactJson: flags.compactJson, silent: flags.silent };
   }
 
   if (command === "context") {
     ensureNoExtraArgs(args.slice(1), "context");
-    return { toolName: "get_active_context", args: {}, compactJson: flags.compactJson, silent: flags.silent };
+    return { kind: "tool", toolName: "get_active_context", args: {}, compactJson: flags.compactJson, silent: flags.silent };
   }
 
   if (command === "layers") {
@@ -94,6 +106,7 @@ function parseCliArgs(argv: string[]): {
     }
     const detail = readOptionalStringOption(args.slice(2), "--detail", "layers");
     return {
+      kind: "tool",
       toolName: "get_comp_tree",
       args: detail ? { compName, detail } : { compName },
       compactJson: flags.compactJson,
@@ -125,6 +138,7 @@ function parseCliArgs(argv: string[]): {
     }
     const detail = readOptionalStringOption(args.slice(3), "--detail", "layer");
     return {
+      kind: "tool",
       toolName: "get_layer_info",
       args: detail ? { compName, layerIndex, detail } : { compName, layerIndex },
       compactJson: flags.compactJson,
@@ -145,6 +159,7 @@ function parseCliArgs(argv: string[]): {
     }
     const toolArgs = readJsonObjectOption(args.slice(2), "--args", "call");
     return {
+      kind: "tool",
       toolName,
       args: toolArgs,
       compactJson: flags.compactJson,
@@ -153,6 +168,47 @@ function parseCliArgs(argv: string[]): {
   }
 
   throw new Error(`Unknown command: ${command}`);
+}
+
+function getHelpText(): string {
+  return [
+    "AE CLI — 用命令行操作 After Effects",
+    "",
+    "用法：",
+    "  ae-cli <命令> [选项]",
+    "",
+    "命令：",
+    "  check                              检查 AE 连接状态",
+    "  context                            获取当前合成、选中图层和选中属性",
+    "  layers <合成名> [--detail <级别>]   获取合成图层树",
+    "  layer  <合成名> <图层序号> [--detail <级别>]  获取单图层详情",
+    "  call   <工具名> [--args '<JSON>']  直接调用任意工具（调试用）",
+    "  help                               显示帮助",
+    "",
+    "--detail 可选值：",
+    "  basic           图层名、类型、父层（默认）",
+    "  timing          + 入出点、startTime",
+    "  with-effects    + 效果列表",
+    "  with-expressions + 有表达式的属性",
+    "  full            以上全部",
+    "",
+    "全局选项：",
+    "  --json    输出压缩 JSON（适合管道/脚本）",
+    "  --silent  只输出错误",
+    "",
+    "退出码：",
+    "  0  成功",
+    "  1  AE 执行错误",
+    "  2  参数错误",
+    "  3  连接超时（AE 未开或面板未启动）",
+    "",
+    "示例：",
+    "  ae-cli check",
+    "  ae-cli context",
+    "  ae-cli layers \"Main_Title\" --detail with-effects",
+    "  ae-cli layer \"Main_Title\" 3 --detail full",
+    "  ae-cli call set_property_value --args '{\"compName\":\"Main\",\"layerIndex\":1,\"propertyMatchName\":\"ADBE Opacity\",\"value\":50}'"
+  ].join("\n");
 }
 
 function readGlobalFlags(argv: string[]): { argv: string[]; compactJson: boolean; silent: boolean } {
