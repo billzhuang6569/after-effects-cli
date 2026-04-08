@@ -114,7 +114,20 @@ claude mcp add ae-agent -- node /你的路径/ae-mcp-server/dist/src/index.js
 
 ## 命令行工具（可选）
 
-除了在 Claude 里对话，也可以在终端直接查询 AE 信息：
+除了在 Claude 里对话，也可以在终端直接查询 AE 信息。
+
+### 安装到系统（一次性，之后永久可用）
+
+在终端进入项目目录，运行：
+
+```bash
+cd ae-mcp-server
+npm link
+```
+
+完成后，任何终端窗口都可以直接用 `ae-cli`，不需要写路径。
+
+### 常用命令
 
 ```bash
 ae-cli check                                      # 检查 AE 连接状态
@@ -123,6 +136,7 @@ ae-cli layers "合成名称"                           # 图层列表
 ae-cli layers "合成名称" --detail with-effects    # 图层列表（含效果）
 ae-cli layer "合成名称" 3 --detail full           # 单图层完整详情（效果 + 表达式）
 ae-cli call <工具名> --args '{"参数":"值"}'        # 直接调用任意工具
+ae-cli help                                       # 查看所有命令和参数说明
 ```
 
 → [完整 CLI 命令参考](#cli-命令完整参考)
