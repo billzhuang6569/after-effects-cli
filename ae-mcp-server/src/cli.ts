@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { realpathSync } from "node:fs";
 import { ZodError } from "zod";
 import { BridgeClient } from "./bridge/client.js";
 import { executeTool } from "./registry/tool-registry.js";
@@ -335,7 +336,8 @@ function formatCliError(error: unknown): string {
   return String(error);
 }
 
-if (typeof process.argv[1] === "string" && import.meta.url === new URL(process.argv[1], "file://").href) {
+const _argv1Real = process.argv[1] ? (() => { try { return realpathSync(process.argv[1]); } catch { return process.argv[1]; } })() : "";
+if (_argv1Real && import.meta.url === new URL(_argv1Real, "file://").href) {
   runCli(process.argv.slice(2)).then((exitCode) => {
     process.exit(exitCode);
   });
