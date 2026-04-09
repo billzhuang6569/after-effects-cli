@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 import { ZodError } from "zod";
 import { BridgeClient } from "./bridge/client.js";
 import { executeTool } from "./registry/tool-registry.js";
