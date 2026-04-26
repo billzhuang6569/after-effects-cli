@@ -98,6 +98,28 @@ describe("ae-cli", () => {
     expect(io.stdout.write).toHaveBeenCalledWith('{"index":1}\n');
   });
 
+  it("passes generic call arguments for no-trace cleanup tools", async () => {
+    const io = createIo();
+    const executeTool = vi.fn(async () => ({
+      content: [{ type: "text" as const, text: '{"existed":true,"deleted":true}' }]
+    }));
+
+    const exitCode = await runCli(
+      ["call", "delete_composition", "--args", '{"name":"TAN_TEST_demo"}', "--json"],
+      io,
+      {
+        createBridge: () => ({ initialize: vi.fn(async () => undefined) }),
+        executeTool
+      }
+    );
+
+    expect(exitCode).toBe(0);
+    expect(executeTool).toHaveBeenCalledWith(expect.anything(), "delete_composition", {
+      name: "TAN_TEST_demo"
+    });
+    expect(io.stdout.write).toHaveBeenCalledWith('{"existed":true,"deleted":true}\n');
+  });
+
   it("returns exit code 2 for invalid cli arguments", async () => {
     const io = createIo();
 

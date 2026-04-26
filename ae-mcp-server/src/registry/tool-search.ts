@@ -13,6 +13,8 @@ const SYNONYM_GROUPS: string[][] = [
   ["add_effect", "effect", "fx", "添加效果", "效果"],
   ["precompose_layers", "precompose", "预合成"],
   ["create_composition", "new comp", "create composition", "新建合成", "创建合成"],
+  ["find_project_item", "project item", "find comp", "lookup comp", "查找合成", "查找项目项"],
+  ["delete_composition", "delete comp", "remove comp", "cleanup comp", "删除合成", "清理合成"],
   ["set_property_value", "set value", "property value", "设置属性值", "属性赋值"]
 ];
 

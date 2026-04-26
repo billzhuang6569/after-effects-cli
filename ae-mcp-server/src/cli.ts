@@ -209,7 +209,9 @@ function getHelpText(): string {
     "  ae-cli context",
     "  ae-cli layers \"Main_Title\" --detail with-effects",
     "  ae-cli layer \"Main_Title\" 3 --detail full",
-    "  ae-cli call set_property_value --args '{\"compName\":\"Main\",\"layerIndex\":1,\"propertyMatchName\":\"ADBE Opacity\",\"value\":50}'"
+    "  ae-cli call set_property_value --args '{\"compName\":\"Main\",\"layerIndex\":1,\"propertyMatchName\":\"ADBE Opacity\",\"value\":50}'",
+    "  ae-cli call find_project_item --args '{\"name\":\"TAN_TEST_demo\",\"type\":\"composition\"}' --json",
+    "  ae-cli call delete_composition --args '{\"name\":\"TAN_TEST_demo\"}' --json"
   ].join("\n");
 }
 

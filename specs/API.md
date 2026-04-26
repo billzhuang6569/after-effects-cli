@@ -48,7 +48,9 @@ AE 接收器执行完毕后，写入的 `.response` 文件必须符合以下 Sch
   "error": {
     // 仅在 status 为 "error" 时存在
     "message": "string", // 错误描述
-    "line": "number"     // 发生错误的 ExtendScript 行号（可选）
+    "line": "number",    // 发生错误的 ExtendScript 行号（可选）
+    "code": "string",    // 稳定错误码（可选，如 PROJECT_ITEM_AMBIGUOUS）
+    "details": {}        // 结构化错误细节（可选）
   }
 }
 ```
@@ -192,6 +194,83 @@ AE 接收器执行完毕后，写入的 `.response` 文件必须符合以下 Sch
     }
     ```
 
+#### Action: `find_project_item`
+*   **描述**：按精确名称或 item id 查找 AE 项目项，返回结构化元数据。不会进行模糊匹配；如果多个项目项精确重名且无法唯一确定，则返回错误。
+*   **Payload**:
+    ```json
+    {
+      "name": "TAN_TEST_demo",
+      "type": "composition"
+    }
+    ```
+*   `name` 可替换为 `compName`；也可使用 `id` 或 `itemId`。`type` 可选，支持 `composition | comp | folder | footage | item | any`。
+*   **找到时 Response Data 示例**:
+    ```json
+    {
+      "existed": true,
+      "item": {
+        "itemId": 128,
+        "id": 128,
+        "projectIndex": 4,
+        "name": "TAN_TEST_demo",
+        "type": "composition",
+        "width": 320,
+        "height": 180,
+        "duration": 1,
+        "frameRate": 30,
+        "pixelAspect": 1,
+        "numLayers": 1
+      },
+      "items": [
+        {
+          "itemId": 128,
+          "id": 128,
+          "projectIndex": 4,
+          "name": "TAN_TEST_demo",
+          "type": "composition"
+        }
+      ],
+      "query": {
+        "name": "TAN_TEST_demo",
+        "type": "composition"
+      },
+      "errorCode": null
+    }
+    ```
+*   **找不到时 Response Data 示例**:
+    ```json
+    {
+      "existed": false,
+      "item": null,
+      "items": [],
+      "query": {
+        "name": "TAN_TEST_demo",
+        "type": "composition"
+      },
+      "errorCode": "PROJECT_ITEM_NOT_FOUND"
+    }
+    ```
+*   **重名歧义 Error 示例**:
+    ```json
+    {
+      "status": "error",
+      "error": {
+        "code": "PROJECT_ITEM_AMBIGUOUS",
+        "message": "Ambiguous project item match: 2 exact matches",
+        "details": {
+          "query": {
+            "name": "TAN_TEST_demo",
+            "type": "composition"
+          },
+          "matches": [
+            { "itemId": 128, "name": "TAN_TEST_demo", "type": "composition" },
+            { "itemId": 129, "name": "TAN_TEST_demo", "type": "composition" }
+          ]
+        }
+      }
+    }
+    ```
+
 ### 3.2 执行操作 (Execution)
 
 #### Action: `apply_expression`
@@ -310,6 +389,56 @@ AE 接收器执行完毕后，写入的 `.response` 文件必须符合以下 Sch
       "parentName": "CTRL_Null"
     }
     ```
+
+#### Action: `reorder_layers`
+*   **描述**：将指定图层移动到目标层级位置。
+*   **Payload**:
+    ```json
+    {
+      "compName": "Main_Title",
+      "layerIndex": 3,
+      "targetPosition": 1
+    }
+    ```
+*   **Response Data 示例**:
+    ```json
+    {
+      "layerName": "TXT_Title",
+      "fromIndex": 3,
+      "toIndex": 1
+    }
+    ```
+
+#### Action: `set_layer_switches`
+*   **描述**：批量设置图层开关状态，至少需要提供一个开关字段。
+*   **Payload**:
+    ```json
+    {
+      "compName": "Main_Title",
+      "layerIndex": 1,
+      "enabled": true,
+      "solo": false,
+      "shy": true,
+      "is3D": true,
+      "adjustmentLayer": false,
+      "collapseTransformation": true,
+      "motionBlur": true,
+      "guideLayer": false
+    }
+    ```
+*   `enabled`、`solo`、`shy`、`is3D`、`adjustmentLayer`、`collapseTransformation`、`motionBlur`、`guideLayer` 均为可选字段，但至少要提供一个。
+*   **Response Data 示例**:
+    ```json
+    {
+      "layerName": "CTRL_Null",
+      "applied": {
+        "enabled": true,
+        "is3D": true,
+        "motionBlur": true
+      }
+    }
+    ```
+*   当请求的开关对当前图层类型不适用时，可额外返回 `warnings: string[]`，其中仅描述被跳过的字段。
 
 #### Action: `create_text_layer`
 *   **描述**：在指定合成中创建文字图层，并可设置字体大小、颜色与位置。
@@ -433,6 +562,72 @@ AE 接收器执行完毕后，写入的 `.response` 文件必须符合以下 Sch
     {
       "compName": "Shot_010_Main",
       "itemId": 128
+    }
+    ```
+
+#### Action: `delete_composition`
+*   **描述**：按精确名称或 item id 删除单个合成，用于无痕临时资源清理。不会进行模糊匹配；如果多个合成精确重名，则不会删除任何项目，并返回稳定错误码。
+*   **Payload**:
+    ```json
+    {
+      "name": "TAN_TEST_demo"
+    }
+    ```
+*   `name` 可替换为 `compName`；也可使用 `id` 或 `itemId`。
+*   **删除成功 Response Data 示例**:
+    ```json
+    {
+      "existed": true,
+      "deleted": true,
+      "deletedItem": {
+        "itemId": 128,
+        "id": 128,
+        "projectIndex": 4,
+        "name": "TAN_TEST_demo",
+        "type": "composition",
+        "width": 320,
+        "height": 180,
+        "duration": 1,
+        "frameRate": 30,
+        "pixelAspect": 1,
+        "numLayers": 1
+      },
+      "compName": "TAN_TEST_demo",
+      "itemId": 128,
+      "query": {
+        "name": "TAN_TEST_demo",
+        "type": "composition"
+      },
+      "errorCode": null
+    }
+    ```
+*   **已不存在 Response Data 示例**:
+    ```json
+    {
+      "existed": false,
+      "deleted": false,
+      "deletedItem": null,
+      "query": {
+        "name": "TAN_TEST_demo",
+        "type": "composition"
+      },
+      "errorCode": "PROJECT_ITEM_NOT_FOUND"
+    }
+    ```
+*   **重名歧义 Error 示例**:
+    ```json
+    {
+      "status": "error",
+      "error": {
+        "code": "PROJECT_ITEM_AMBIGUOUS",
+        "message": "Ambiguous composition match: 2 exact matches",
+        "details": {
+          "matches": [
+            { "itemId": 128, "name": "TAN_TEST_demo", "type": "composition" },
+            { "itemId": 129, "name": "TAN_TEST_demo", "type": "composition" }
+          ]
+        }
+      }
     }
     ```
 

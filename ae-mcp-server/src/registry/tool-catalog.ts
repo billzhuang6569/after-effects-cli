@@ -11,13 +11,17 @@ import {
   CreateSolidLayerSchema,
   CreateTextLayerSchema,
   ExecuteRawJsxSchema,
+  FindProjectItemSchema,
   GetActiveContextSchema,
   GetCompStructureSummarySchema,
   GetLayerInfoSchema,
   GetCompTreeSchema,
   PrecomposeLayersSchema,
+  ReorderLayersSchema,
+  DeleteCompositionSchema,
   SetPropertyValueSchema,
   SetLayerParentSchema,
+  SetLayerSwitchesSchema,
   SetTransformSchema,
   SearchAeToolsSchema
 } from "../tools/schemas.js";
@@ -92,6 +96,22 @@ export const toolCatalog: ToolMetadata[] = [
     examplePrompts: ["查看 3 号图层详情", "get layer info for layer 2", "读取图层效果和表达式"],
     inputSchema: GetLayerInfoSchema,
     outputDescription: "Detailed information for a target layer.",
+    riskLevel: "safe",
+    requiresActiveComp: false
+  },
+  {
+    name: "find_project_item",
+    title: "Find Project Item",
+    description: "Find exactly one project item by exact name or item id and return structured metadata.",
+    category: "context",
+    tags: ["project item", "find", "lookup", "composition", "exact", "id", "项目项", "查找", "合成", "精确"],
+    examplePrompts: [
+      "find project item by name",
+      "查找名为 TAN_TEST_demo 的合成",
+      "get composition metadata by item id"
+    ],
+    inputSchema: FindProjectItemSchema,
+    outputDescription: "Exact project item metadata, or existed=false with PROJECT_ITEM_NOT_FOUND.",
     riskLevel: "safe",
     requiresActiveComp: false
   },
@@ -202,6 +222,30 @@ export const toolCatalog: ToolMetadata[] = [
     requiresActiveComp: false
   },
   {
+    name: "reorder_layers",
+    title: "Reorder Layers",
+    description: "Move one layer to a target timeline position in a composition.",
+    category: "layers",
+    tags: ["reorder", "move", "layer order", "图层排序", "移动图层", "调整顺序"],
+    examplePrompts: ["把第3层移到最顶层", "reorder layer to position 1", "图层移到第2位"],
+    inputSchema: ReorderLayersSchema,
+    outputDescription: "Layer name with original and final timeline index after reordering.",
+    riskLevel: "moderate",
+    requiresActiveComp: false
+  },
+  {
+    name: "set_layer_switches",
+    title: "Set Layer Switches",
+    description: "Toggle one or more layer switches such as solo, shy, 3D or adjustment mode.",
+    category: "layers",
+    tags: ["switch", "toggle", "3D", "solo", "shy", "adjustment", "开关", "三维", "独奏", "调整层", "栅格化"],
+    examplePrompts: ["开启第2层3D", "把图层设为调整层", "关闭独奏", "set layer to 3D"],
+    inputSchema: SetLayerSwitchesSchema,
+    outputDescription: "Layer name and switches that were actually applied.",
+    riskLevel: "moderate",
+    requiresActiveComp: false
+  },
+  {
     name: "create_text_layer",
     title: "Create Text Layer",
     description: "Create text layer with optional font size, fill color and position.",
@@ -270,6 +314,22 @@ export const toolCatalog: ToolMetadata[] = [
     examplePrompts: ["新建合成", "create composition 1920x1080", "create a new comp"],
     inputSchema: CreateCompositionSchema,
     outputDescription: "Created composition name and item id.",
+    riskLevel: "moderate",
+    requiresActiveComp: false
+  },
+  {
+    name: "delete_composition",
+    title: "Delete Composition",
+    description: "Delete exactly one composition by exact name or item id for no-trace cleanup.",
+    category: "compositions",
+    tags: ["delete", "remove", "cleanup", "composition", "project item", "no-trace", "删除", "清理", "合成"],
+    examplePrompts: [
+      "delete composition by exact name",
+      "清理 TAN_TEST 临时合成",
+      "remove comp by item id"
+    ],
+    inputSchema: DeleteCompositionSchema,
+    outputDescription: "Whether the composition existed, whether it was deleted, and deleted item metadata.",
     riskLevel: "moderate",
     requiresActiveComp: false
   },

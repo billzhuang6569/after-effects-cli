@@ -13,6 +13,9 @@ var AEAgentCore = {
         if (action === "get_layer_info") {
             return this.getLayerInfo(id, payload);
         }
+        if (action === "find_project_item") {
+            return this.findProjectItem(id, payload);
+        }
         if (action === "apply_expression") {
             return this.applyExpression(id, payload);
         }
@@ -27,6 +30,12 @@ var AEAgentCore = {
         }
         if (action === "set_layer_parent") {
             return this.setLayerParent(id, payload);
+        }
+        if (action === "reorder_layers") {
+            return this.reorderLayers(id, payload);
+        }
+        if (action === "set_layer_switches") {
+            return this.setLayerSwitches(id, payload);
         }
         if (action === "create_text_layer") {
             return this.createTextLayer(id, payload);
@@ -45,6 +54,9 @@ var AEAgentCore = {
         }
         if (action === "create_composition") {
             return this.createComposition(id, payload);
+        }
+        if (action === "delete_composition") {
+            return this.deleteComposition(id, payload);
         }
         if (action === "set_property_value") {
             return this.setPropertyValue(id, payload);
@@ -160,6 +172,50 @@ var AEAgentCore = {
                 return this.error(id, "Layer index out of range: " + layerIndex);
             }
             return this.success(id, this.buildLayerInfo(comp.layer(layerIndex), detail, true));
+        } catch (e) {
+            return this.error(id, e.toString(), e.line);
+        }
+    },
+
+    findProjectItem: function (id, payload) {
+        try {
+            var query = this.normalizeProjectItemQuery(payload, "");
+            if (query.error) {
+                return this.error(id, query.error, undefined, "INVALID_ARGUMENT", {
+                    required: "Provide exactly matching name/compName or id/itemId."
+                });
+            }
+            var matches = this.findProjectItemMatches(query);
+            var queryInfo = this.projectItemQueryInfo(query);
+            var items = this.buildProjectItemMatchInfos(matches);
+            if (matches.length === 0) {
+                return this.success(id, {
+                    existed: false,
+                    item: null,
+                    items: [],
+                    query: queryInfo,
+                    errorCode: "PROJECT_ITEM_NOT_FOUND"
+                });
+            }
+            if (matches.length > 1) {
+                return this.error(
+                    id,
+                    "Ambiguous project item match: " + matches.length + " exact matches",
+                    undefined,
+                    "PROJECT_ITEM_AMBIGUOUS",
+                    {
+                        query: queryInfo,
+                        matches: items
+                    }
+                );
+            }
+            return this.success(id, {
+                existed: true,
+                item: items[0],
+                items: items,
+                query: queryInfo,
+                errorCode: null
+            });
         } catch (e) {
             return this.error(id, e.toString(), e.line);
         }
@@ -437,6 +493,163 @@ var AEAgentCore = {
                 layerName: layer.name,
                 parentName: targetParent ? targetParent.name : null
             });
+        } catch (e) {
+            return this.error(id, e.toString(), e.line);
+        } finally {
+            if (hasUndo) {
+                try {
+                    app.endUndoGroup();
+                } catch (innerError) {}
+            }
+        }
+    },
+
+    reorderLayers: function (id, payload) {
+        var hasUndo = false;
+        try {
+            var compName = payload && payload.compName ? String(payload.compName) : "";
+            var layerIndex = payload && typeof payload.layerIndex !== "undefined" ? Number(payload.layerIndex) : 0;
+            var targetPosition = payload && typeof payload.targetPosition !== "undefined" ? Number(payload.targetPosition) : 0;
+            if (!compName || !isFinite(layerIndex) || layerIndex < 1 || !isFinite(targetPosition) || targetPosition < 1) {
+                return this.error(id, "Missing required payload fields");
+            }
+            var comp = this.findCompByName(compName);
+            if (!comp) {
+                return this.error(id, "Composition not found: " + compName);
+            }
+            if (layerIndex > comp.numLayers) {
+                return this.error(id, "Layer index out of range: " + layerIndex);
+            }
+            if (targetPosition > comp.numLayers) {
+                return this.error(id, "Target position out of range: " + targetPosition);
+            }
+            var layer = comp.layer(layerIndex);
+            if (layerIndex === targetPosition) {
+                return this.success(id, {
+                    layerName: layer.name,
+                    fromIndex: layerIndex,
+                    toIndex: layer.index
+                });
+            }
+            app.beginUndoGroup("Agent Action");
+            hasUndo = true;
+            if (targetPosition < layerIndex) {
+                layer.moveBefore(comp.layer(targetPosition));
+            } else {
+                layer.moveAfter(comp.layer(targetPosition));
+            }
+            return this.success(id, {
+                layerName: layer.name,
+                fromIndex: layerIndex,
+                toIndex: layer.index
+            });
+        } catch (e) {
+            return this.error(id, e.toString(), e.line);
+        } finally {
+            if (hasUndo) {
+                try {
+                    app.endUndoGroup();
+                } catch (innerError) {}
+            }
+        }
+    },
+
+    setLayerSwitches: function (id, payload) {
+        var hasUndo = false;
+        try {
+            var compName = payload && payload.compName ? String(payload.compName) : "";
+            var layerIndex = payload && typeof payload.layerIndex !== "undefined" ? Number(payload.layerIndex) : 0;
+            var hasAnySwitch =
+                payload &&
+                (
+                    typeof payload.enabled !== "undefined" ||
+                    typeof payload.solo !== "undefined" ||
+                    typeof payload.shy !== "undefined" ||
+                    typeof payload.is3D !== "undefined" ||
+                    typeof payload.adjustmentLayer !== "undefined" ||
+                    typeof payload.collapseTransformation !== "undefined" ||
+                    typeof payload.motionBlur !== "undefined" ||
+                    typeof payload.guideLayer !== "undefined"
+                );
+            if (!compName || !isFinite(layerIndex) || layerIndex < 1) {
+                return this.error(id, "Missing required payload fields");
+            }
+            if (!hasAnySwitch) {
+                return this.error(id, "At least one layer switch must be provided");
+            }
+            var comp = this.findCompByName(compName);
+            if (!comp) {
+                return this.error(id, "Composition not found: " + compName);
+            }
+            if (layerIndex > comp.numLayers) {
+                return this.error(id, "Layer index out of range: " + layerIndex);
+            }
+            var layer = comp.layer(layerIndex);
+            var applied = {};
+            var warnings = [];
+            var avLayer = layer instanceof AVLayer;
+            app.beginUndoGroup("Agent Action");
+            hasUndo = true;
+            if (typeof payload.enabled !== "undefined") {
+                layer.enabled = !!payload.enabled;
+                applied.enabled = !!layer.enabled;
+            }
+            if (typeof payload.solo !== "undefined") {
+                layer.solo = !!payload.solo;
+                applied.solo = !!layer.solo;
+            }
+            if (typeof payload.shy !== "undefined") {
+                layer.shy = !!payload.shy;
+                applied.shy = !!layer.shy;
+            }
+            if (typeof payload.adjustmentLayer !== "undefined") {
+                if (avLayer) {
+                    layer.adjustmentLayer = !!payload.adjustmentLayer;
+                    applied.adjustmentLayer = !!layer.adjustmentLayer;
+                } else {
+                    warnings.push("Skipped adjustmentLayer: layer is not an AVLayer");
+                }
+            }
+            if (typeof payload.is3D !== "undefined") {
+                if (avLayer) {
+                    layer.threeDLayer = !!payload.is3D;
+                    applied.is3D = !!layer.threeDLayer;
+                } else {
+                    warnings.push("Skipped is3D: layer is not an AVLayer");
+                }
+            }
+            if (typeof payload.guideLayer !== "undefined") {
+                if (avLayer) {
+                    layer.guideLayer = !!payload.guideLayer;
+                    applied.guideLayer = !!layer.guideLayer;
+                } else {
+                    warnings.push("Skipped guideLayer: layer is not an AVLayer");
+                }
+            }
+            if (typeof payload.collapseTransformation !== "undefined") {
+                if (avLayer) {
+                    layer.collapseTransformation = !!payload.collapseTransformation;
+                    applied.collapseTransformation = !!layer.collapseTransformation;
+                } else {
+                    warnings.push("Skipped collapseTransformation: layer is not an AVLayer");
+                }
+            }
+            if (typeof payload.motionBlur !== "undefined") {
+                if (avLayer) {
+                    layer.motionBlur = !!payload.motionBlur;
+                    applied.motionBlur = !!layer.motionBlur;
+                } else {
+                    warnings.push("Skipped motionBlur: layer is not an AVLayer");
+                }
+            }
+            var result = {
+                layerName: layer.name,
+                applied: applied
+            };
+            if (warnings.length > 0) {
+                result.warnings = warnings;
+            }
+            return this.success(id, result);
         } catch (e) {
             return this.error(id, e.toString(), e.line);
         } finally {
@@ -804,6 +1017,62 @@ var AEAgentCore = {
             return this.success(id, {
                 compName: comp.name,
                 itemId: this.getCompId(comp)
+            });
+        } catch (e) {
+            return this.error(id, e.toString(), e.line);
+        } finally {
+            if (hasUndo) {
+                try {
+                    app.endUndoGroup();
+                } catch (innerError) {}
+            }
+        }
+    },
+
+    deleteComposition: function (id, payload) {
+        var hasUndo = false;
+        try {
+            var query = this.normalizeProjectItemQuery(payload, "composition");
+            if (query.error) {
+                return this.error(id, query.error, undefined, "INVALID_ARGUMENT", {
+                    required: "Provide exactly matching name/compName or id/itemId."
+                });
+            }
+            var matches = this.findProjectItemMatches(query);
+            var queryInfo = this.projectItemQueryInfo(query);
+            var items = this.buildProjectItemMatchInfos(matches);
+            if (matches.length === 0) {
+                return this.success(id, {
+                    existed: false,
+                    deleted: false,
+                    deletedItem: null,
+                    query: queryInfo,
+                    errorCode: "PROJECT_ITEM_NOT_FOUND"
+                });
+            }
+            if (matches.length > 1) {
+                return this.error(
+                    id,
+                    "Ambiguous composition match: " + matches.length + " exact matches",
+                    undefined,
+                    "PROJECT_ITEM_AMBIGUOUS",
+                    {
+                        query: queryInfo,
+                        matches: items
+                    }
+                );
+            }
+            app.beginUndoGroup("Agent Action");
+            hasUndo = true;
+            matches[0].item.remove();
+            return this.success(id, {
+                existed: true,
+                deleted: true,
+                deletedItem: items[0],
+                compName: items[0].name,
+                itemId: items[0].itemId,
+                query: queryInfo,
+                errorCode: null
             });
         } catch (e) {
             return this.error(id, e.toString(), e.line);
@@ -1233,6 +1502,186 @@ var AEAgentCore = {
         return null;
     },
 
+    normalizeProjectItemQuery: function (payload, defaultType) {
+        var hasId = false;
+        var rawId = null;
+        var hasItemId = false;
+        var rawItemId = null;
+        var hasName = false;
+        var rawName = "";
+        var hasCompName = false;
+        var rawCompName = "";
+        var idValue = null;
+        var nameValue = "";
+        var typeValue = "";
+        if (payload && typeof payload.id !== "undefined" && payload.id !== null && String(payload.id) !== "") {
+            hasId = true;
+            rawId = payload.id;
+        }
+        if (payload && typeof payload.itemId !== "undefined" && payload.itemId !== null && String(payload.itemId) !== "") {
+            hasItemId = true;
+            rawItemId = payload.itemId;
+        }
+        if (hasId && hasItemId && String(rawId) !== String(rawItemId)) {
+            return { error: "Conflicting id and itemId values" };
+        }
+        if (hasId || hasItemId) {
+            idValue = Number(hasId ? rawId : rawItemId);
+            if (!isFinite(idValue) || idValue < 1 || Math.floor(idValue) !== idValue) {
+                return { error: "id/itemId must be a positive integer" };
+            }
+        }
+        if (payload && typeof payload.name !== "undefined" && payload.name !== null && String(payload.name) !== "") {
+            hasName = true;
+            rawName = String(payload.name);
+        }
+        if (payload && typeof payload.compName !== "undefined" && payload.compName !== null && String(payload.compName) !== "") {
+            hasCompName = true;
+            rawCompName = String(payload.compName);
+        }
+        if (hasName && hasCompName && rawName !== rawCompName) {
+            return { error: "Conflicting name and compName values" };
+        }
+        if (hasName || hasCompName) {
+            nameValue = hasName ? rawName : rawCompName;
+        }
+        if (idValue === null && !nameValue) {
+            return { error: "Missing required payload fields" };
+        }
+        typeValue = this.normalizeProjectItemType(payload && payload.type ? String(payload.type) : String(defaultType || ""));
+        if (typeValue === null) {
+            return { error: "Unsupported project item type: " + String(payload && payload.type ? payload.type : defaultType) };
+        }
+        return {
+            id: idValue,
+            name: nameValue,
+            type: typeValue
+        };
+    },
+
+    normalizeProjectItemType: function (typeValue) {
+        var value = String(typeValue || "").toLowerCase();
+        value = value.replace(/^\s+|\s+$/g, "");
+        if (!value || value === "any" || value === "item" || value === "project_item" || value === "project-item") {
+            return "";
+        }
+        if (value === "comp" || value === "composition") {
+            return "composition";
+        }
+        if (value === "folder") {
+            return "folder";
+        }
+        if (value === "footage") {
+            return "footage";
+        }
+        return null;
+    },
+
+    projectItemQueryInfo: function (query) {
+        var info = {};
+        if (query.id !== null && typeof query.id !== "undefined") {
+            info.itemId = query.id;
+            info.id = query.id;
+        }
+        if (query.name) {
+            info.name = query.name;
+        }
+        info.type = query.type ? query.type : "any";
+        return info;
+    },
+
+    findProjectItemMatches: function (query) {
+        var project = app.project;
+        var matches = [];
+        var i = 0;
+        if (!project) return matches;
+        for (i = 1; i <= project.numItems; i += 1) {
+            var item = project.item(i);
+            if (!item) continue;
+            if (query.id !== null && typeof query.id !== "undefined" && this.getProjectItemId(item) !== query.id) {
+                continue;
+            }
+            if (query.name && String(item.name) !== query.name) {
+                continue;
+            }
+            if (query.type && !this.projectItemMatchesType(item, query.type)) {
+                continue;
+            }
+            matches.push({
+                item: item,
+                projectIndex: i
+            });
+        }
+        return matches;
+    },
+
+    buildProjectItemMatchInfos: function (matches) {
+        var infos = [];
+        var i = 0;
+        for (i = 0; i < matches.length; i += 1) {
+            infos.push(this.buildProjectItemInfo(matches[i].item, matches[i].projectIndex));
+        }
+        return infos;
+    },
+
+    projectItemMatchesType: function (item, typeValue) {
+        return this.getProjectItemType(item) === typeValue;
+    },
+
+    getProjectItemType: function (item) {
+        if (item instanceof CompItem) return "composition";
+        if (item instanceof FolderItem) return "folder";
+        if (item instanceof FootageItem) return "footage";
+        return "project_item";
+    },
+
+    buildProjectItemInfo: function (item, projectIndex) {
+        var itemId = this.getProjectItemId(item);
+        var info = {
+            itemId: itemId,
+            id: itemId,
+            projectIndex: projectIndex,
+            name: item && item.name ? String(item.name) : "",
+            type: this.getProjectItemType(item)
+        };
+        if (item && item.parentFolder) {
+            info.parentFolder = {
+                itemId: this.getProjectItemId(item.parentFolder),
+                id: this.getProjectItemId(item.parentFolder),
+                name: item.parentFolder.name ? String(item.parentFolder.name) : ""
+            };
+        }
+        if (item instanceof CompItem) {
+            info.width = item.width;
+            info.height = item.height;
+            info.duration = item.duration;
+            info.frameRate = item.frameRate;
+            info.pixelAspect = item.pixelAspect;
+            info.numLayers = item.numLayers;
+        } else if (item instanceof FootageItem) {
+            if (typeof item.width !== "undefined") info.width = item.width;
+            if (typeof item.height !== "undefined") info.height = item.height;
+            if (typeof item.duration !== "undefined") info.duration = item.duration;
+        } else if (item instanceof FolderItem) {
+            if (typeof item.numItems !== "undefined") info.numItems = item.numItems;
+        }
+        return info;
+    },
+
+    getProjectItemId: function (item) {
+        var value = 0;
+        if (!item) return 0;
+        if (typeof item.id !== "undefined") {
+            value = Number(item.id);
+            if (isFinite(value)) return value;
+        }
+        if (typeof item.itemID !== "undefined") {
+            value = Number(item.itemID);
+            if (isFinite(value)) return value;
+        }
+        return 0;
+    },
+
     findPropertyByMatchName: function (group, matchName) {
         var i = 0;
         if (!group) return null;
@@ -1293,11 +1742,19 @@ var AEAgentCore = {
         return '{"id":"' + this.escapeString(id) + '","status":"success","data":' + this.encodeValue(data || {}) + '}';
     },
 
-    error: function (id, message, line) {
+    error: function (id, message, line, code, details) {
         var linePart = "";
+        var codePart = "";
+        var detailsPart = "";
         if (typeof line === "number") {
             linePart = ',"line":' + line;
         }
-        return '{"id":"' + this.escapeString(id) + '","status":"error","data":{},"error":{"message":"' + this.escapeString(message) + '"' + linePart + '}}';
+        if (typeof code === "string" && code) {
+            codePart = ',"code":"' + this.escapeString(code) + '"';
+        }
+        if (details) {
+            detailsPart = ',"details":' + this.encodeValue(details);
+        }
+        return '{"id":"' + this.escapeString(id) + '","status":"error","data":{},"error":{"message":"' + this.escapeString(message) + '"' + linePart + codePart + detailsPart + '}}';
     }
 };

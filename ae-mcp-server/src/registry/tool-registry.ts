@@ -12,13 +12,17 @@ import {
   CreateSolidLayerSchema,
   CreateTextLayerSchema,
   ExecuteRawJsxSchema,
+  FindProjectItemSchema,
   GetActiveContextSchema,
   GetCompStructureSummarySchema,
   GetLayerInfoSchema,
   GetCompTreeSchema,
   PrecomposeLayersSchema,
+  ReorderLayersSchema,
+  DeleteCompositionSchema,
   SetPropertyValueSchema,
   SetLayerParentSchema,
+  SetLayerSwitchesSchema,
   SetTransformSchema,
   SearchAeToolsSchema
 } from "../tools/schemas.js";
@@ -40,6 +44,7 @@ export function listToolDefinitions(): ToolDefinition[] {
     "get_active_context",
     "get_comp_tree",
     "get_layer_info",
+    "find_project_item",
     "apply_expression",
     "apply_expression_preset",
     "get_comp_structure_summary",
@@ -48,12 +53,15 @@ export function listToolDefinitions(): ToolDefinition[] {
     "set_transform",
     "create_null_layer",
     "set_layer_parent",
+    "reorder_layers",
+    "set_layer_switches",
     "create_text_layer",
     "batch_rename_layers",
     "add_effect",
     "add_keyframes_batch",
     "precompose_layers",
     "create_composition",
+    "delete_composition",
     "set_property_value",
     "execute_raw_jsx",
     "check_ae_connection"
@@ -89,6 +97,10 @@ export async function executeTool(
     if (toolName === "get_layer_info") {
       const payload = GetLayerInfoSchema.parse(args);
       return await formatBridgeResult(await bridge.execute("get_layer_info", payload), payload);
+    }
+    if (toolName === "find_project_item") {
+      const payload = FindProjectItemSchema.parse(args);
+      return await formatBridgeResult(await bridge.execute("find_project_item", payload), payload);
     }
     if (toolName === "apply_expression") {
       const payload = ApplyExpressionSchema.parse(args);
@@ -135,6 +147,14 @@ export async function executeTool(
       const payload = SetLayerParentSchema.parse(args);
       return await formatBridgeResult(await bridge.execute("set_layer_parent", payload), payload);
     }
+    if (toolName === "reorder_layers") {
+      const payload = ReorderLayersSchema.parse(args);
+      return await formatBridgeResult(await bridge.execute("reorder_layers", payload), payload);
+    }
+    if (toolName === "set_layer_switches") {
+      const payload = SetLayerSwitchesSchema.parse(args);
+      return await formatBridgeResult(await bridge.execute("set_layer_switches", payload), payload);
+    }
     if (toolName === "create_text_layer") {
       const payload = CreateTextLayerSchema.parse(args);
       return await formatBridgeResult(await bridge.execute("create_text_layer", payload), payload);
@@ -158,6 +178,10 @@ export async function executeTool(
     if (toolName === "create_composition") {
       const payload = CreateCompositionSchema.parse(args);
       return await formatBridgeResult(await bridge.execute("create_composition", payload), payload);
+    }
+    if (toolName === "delete_composition") {
+      const payload = DeleteCompositionSchema.parse(args);
+      return await formatBridgeResult(await bridge.execute("delete_composition", payload), payload);
     }
     if (toolName === "set_property_value") {
       const payload = SetPropertyValueSchema.parse(args);
@@ -183,11 +207,13 @@ export async function executeTool(
 }
 
 function searchAeTools(
-  query: string,
+  query?: string,
   category?: string
 ): { content: Array<{ type: "text"; text: string }>; isError?: boolean } {
-  const engine = new ToolSearchEngine(toolCatalog);
-  const results = engine.search(query, category);
+  const trimmedQuery = query ? query.trim() : "";
+  const results = trimmedQuery
+    ? new ToolSearchEngine(toolCatalog).search(trimmedQuery, category)
+    : toolCatalog.filter((tool) => !category || tool.category === category);
   const payload = results.map((tool) => ({
     name: tool.name,
     description: tool.description,
@@ -228,6 +254,26 @@ async function formatBridgeResult(
   params?: Record<string, unknown>
 ): Promise<{ content: Array<{ type: "text"; text: string }>; isError?: boolean }> {
   if (response.status === "error") {
+    if (response.error?.code) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify(
+              {
+                ok: false,
+                errorCode: response.error.code,
+                message: formatBridgeError(response.error.message, params),
+                details: response.error.details ?? null
+              },
+              null,
+              2
+            )
+          }
+        ],
+        isError: true
+      };
+    }
     return {
       content: [{ type: "text", text: formatBridgeError(response.error?.message ?? "Unknown bridge error", params) }],
       isError: true

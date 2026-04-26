@@ -51,6 +51,27 @@ describe("BridgeClient", () => {
     await Promise.all([first, second]);
     expect(order).toEqual(["first", "second"]);
   });
+
+  it("preserves structured bridge error codes and details", async () => {
+    const bridgeDir = await createTempBridgeDir();
+    const client = new BridgeClient({ bridgeDir, timeoutMs: 2000, pollIntervalMs: 50 });
+    await client.initialize();
+
+    void respondOnce(bridgeDir, {
+      status: "error",
+      data: {},
+      error: {
+        message: "Ambiguous composition match",
+        code: "PROJECT_ITEM_AMBIGUOUS",
+        details: { count: 2 }
+      }
+    });
+
+    const result = await client.execute("delete_composition", { name: "TAN_TEST_demo" });
+    expect(result.status).toBe("error");
+    expect(result.error?.code).toBe("PROJECT_ITEM_AMBIGUOUS");
+    expect(result.error?.details).toEqual({ count: 2 });
+  });
 });
 
 async function createTempBridgeDir(): Promise<string> {
@@ -61,7 +82,11 @@ async function createTempBridgeDir(): Promise<string> {
 
 async function respondOnce(
   bridgeDir: string,
-  response: { status: "success" | "error"; data: Record<string, unknown> }
+  response: {
+    status: "success" | "error";
+    data: Record<string, unknown>;
+    error?: { message: string; code?: string; details?: Record<string, unknown> };
+  }
 ): Promise<void> {
   const seen = new Set<string>();
   while (true) {
@@ -77,7 +102,7 @@ async function respondOnce(
     const parsed = JSON.parse(raw) as { id: string };
     await writeFile(
       `${command.fullPath}.response`,
-      JSON.stringify({ id: parsed.id, status: response.status, data: response.data }),
+      JSON.stringify({ id: parsed.id, status: response.status, data: response.data, error: response.error }),
       "utf8"
     );
     await rm(processingPath, { force: true });

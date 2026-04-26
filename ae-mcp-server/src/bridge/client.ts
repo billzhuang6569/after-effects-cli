@@ -92,7 +92,9 @@ export class BridgeClient {
         status === "error"
           ? {
               message: this.resolveErrorMessage(candidate.error),
-              line: this.resolveErrorLine(candidate.error)
+              line: this.resolveErrorLine(candidate.error),
+              code: this.resolveErrorCode(candidate.error),
+              details: this.resolveErrorDetails(candidate.error)
             }
           : undefined
     };
@@ -113,6 +115,19 @@ export class BridgeClient {
     if (!value || typeof value !== "object") return undefined;
     const line = (value as { line?: unknown }).line;
     return typeof line === "number" ? line : undefined;
+  }
+
+  private resolveErrorCode(value: unknown): string | undefined {
+    if (!value || typeof value !== "object") return undefined;
+    const code = (value as { code?: unknown }).code;
+    return typeof code === "string" && code ? code : undefined;
+  }
+
+  private resolveErrorDetails(value: unknown): Record<string, unknown> | undefined {
+    if (!value || typeof value !== "object") return undefined;
+    const details = (value as { details?: unknown }).details;
+    if (!details || typeof details !== "object" || Array.isArray(details)) return undefined;
+    return details as Record<string, unknown>;
   }
 
   private async cleanupProcessingFiles(): Promise<void> {

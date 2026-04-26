@@ -26,7 +26,7 @@ Claude 会自动调用 check_ae_connection。
 
 ## 工具一览
 
-按类别分组（共 20 个）：
+按类别分组（共 25 个）：
 
 **元工具**
 - search_ae_tools：按中英关键词搜索工具并返回参数结构。
@@ -35,6 +35,7 @@ Claude 会自动调用 check_ae_connection。
 **上下文类**
 - get_active_context：读取当前活动合成、选中图层与属性状态。
 - get_comp_tree：获取当前合成的图层树。
+- find_project_item：按精确名称或 item id 查找项目项元数据。
 - get_comp_structure_summary：分析模板合成结构并输出可复用摘要。
 
 **表达式与属性类**
@@ -48,6 +49,8 @@ Claude 会自动调用 check_ae_connection。
 - create_text_layer：创建文本图层并写入内容。
 - create_null_layer：创建空对象图层用于控制器。
 - set_layer_parent：设置图层父子关系。
+- reorder_layers：移动图层到指定时间线位置。
+- set_layer_switches：切换图层 solo、shy、3D、调整层等开关。
 - batch_rename_layers：按规则批量重命名图层。
 - add_effect：为图层添加效果。
 - add_keyframes_batch：批量添加关键帧。
@@ -55,6 +58,7 @@ Claude 会自动调用 check_ae_connection。
 
 **合成类**
 - create_composition：创建新合成并设置基础参数。
+- delete_composition：按精确名称或 item id 删除单个合成。
 - clone_comp_structure：按源合成结构在新合成中重建骨架。
 
 **高级类**
@@ -114,7 +118,7 @@ Claude will automatically call check_ae_connection.
 
 ## Tool Overview
 
-Grouped by category (20 tools total):
+Grouped by category (25 tools total):
 
 **Meta Tools**
 - search_ae_tools: Search tools with bilingual keywords and return full parameter schema.
@@ -123,6 +127,7 @@ Grouped by category (20 tools total):
 **Context Tools**
 - get_active_context: Read active comp, selected layers, and selected properties.
 - get_comp_tree: Get the layer tree of the current composition.
+- find_project_item: Find project item metadata by exact name or item id.
 - get_comp_structure_summary: Analyze a template comp and output reusable structure summary.
 
 **Expression & Property Tools**
@@ -136,6 +141,8 @@ Grouped by category (20 tools total):
 - create_text_layer: Create a text layer with content.
 - create_null_layer: Create a null layer for control rigging.
 - set_layer_parent: Set parent-child relationships between layers.
+- reorder_layers: Move a layer to an exact timeline position.
+- set_layer_switches: Toggle layer switches such as solo, shy, 3D, or adjustment mode.
 - batch_rename_layers: Rename layers in batch with naming rules.
 - add_effect: Add an effect to a target layer.
 - add_keyframes_batch: Add keyframes in batch.
@@ -143,6 +150,7 @@ Grouped by category (20 tools total):
 
 **Composition Tools**
 - create_composition: Create a new composition with base settings.
+- delete_composition: Delete exactly one composition by exact name or item id.
 - clone_comp_structure: Rebuild layer skeleton in a new comp from a source comp.
 
 **Advanced Tools**

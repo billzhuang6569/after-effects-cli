@@ -9,6 +9,8 @@ export interface BridgeRequest {
 export interface BridgeError {
   message: string;
   line?: number;
+  code?: string;
+  details?: Record<string, unknown>;
 }
 
 export interface BridgeResponse {

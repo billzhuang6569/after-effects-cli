@@ -15,6 +15,29 @@ export const GetLayerInfoSchema = z.object({
   detail: LayerDetailSchema.optional()
 });
 
+const ProjectItemIdentifierSchema = z.union([z.number().int().positive(), z.string().min(1)]);
+
+export const ProjectItemTypeSchema = z.enum(["composition", "comp", "folder", "footage", "item", "any"]);
+
+export const FindProjectItemSchema = z
+  .object({
+    name: z.string().min(1).optional(),
+    compName: z.string().min(1).optional(),
+    id: ProjectItemIdentifierSchema.optional(),
+    itemId: ProjectItemIdentifierSchema.optional(),
+    type: ProjectItemTypeSchema.optional()
+  })
+  .refine(
+    (value) =>
+      typeof value.name !== "undefined" ||
+      typeof value.compName !== "undefined" ||
+      typeof value.id !== "undefined" ||
+      typeof value.itemId !== "undefined",
+    {
+      message: "Provide name/compName or id/itemId"
+    }
+  );
+
 export const ApplyExpressionSchema = z.object({
   compName: z.string().min(1),
   layerIndex: z.number().int().positive(),
@@ -35,7 +58,7 @@ export const ExecuteRawJsxSchema = z.object({
 });
 
 export const SearchAeToolsSchema = z.object({
-  query: z.string().min(1),
+  query: z.string().min(1).optional(),
   category: z.string().min(1).optional()
 });
 
@@ -104,6 +127,40 @@ export const SetLayerParentSchema = z.object({
   parentIndex: z.number().int().positive().nullable().optional()
 });
 
+export const ReorderLayersSchema = z.object({
+  compName: z.string().min(1),
+  layerIndex: z.number().int().positive(),
+  targetPosition: z.number().int().positive()
+});
+
+export const SetLayerSwitchesSchema = z
+  .object({
+    compName: z.string().min(1),
+    layerIndex: z.number().int().positive(),
+    enabled: z.boolean().optional(),
+    solo: z.boolean().optional(),
+    shy: z.boolean().optional(),
+    is3D: z.boolean().optional(),
+    adjustmentLayer: z.boolean().optional(),
+    collapseTransformation: z.boolean().optional(),
+    motionBlur: z.boolean().optional(),
+    guideLayer: z.boolean().optional()
+  })
+  .refine(
+    (value) =>
+      typeof value.enabled !== "undefined" ||
+      typeof value.solo !== "undefined" ||
+      typeof value.shy !== "undefined" ||
+      typeof value.is3D !== "undefined" ||
+      typeof value.adjustmentLayer !== "undefined" ||
+      typeof value.collapseTransformation !== "undefined" ||
+      typeof value.motionBlur !== "undefined" ||
+      typeof value.guideLayer !== "undefined",
+    {
+      message: "At least one layer switch must be provided"
+    }
+  );
+
 export const CreateTextLayerSchema = z.object({
   compName: z.string().min(1),
   text: z.string(),
@@ -159,6 +216,24 @@ export const CreateCompositionSchema = z.object({
   pixelAspect: z.number().positive().optional()
 });
 
+export const DeleteCompositionSchema = z
+  .object({
+    name: z.string().min(1).optional(),
+    compName: z.string().min(1).optional(),
+    id: ProjectItemIdentifierSchema.optional(),
+    itemId: ProjectItemIdentifierSchema.optional()
+  })
+  .refine(
+    (value) =>
+      typeof value.name !== "undefined" ||
+      typeof value.compName !== "undefined" ||
+      typeof value.id !== "undefined" ||
+      typeof value.itemId !== "undefined",
+    {
+      message: "Provide name/compName or id/itemId"
+    }
+  );
+
 export const SetPropertyValueSchema = z.object({
   compName: z.string().min(1),
   layerIndex: z.number().int().positive(),
@@ -169,6 +244,7 @@ export const SetPropertyValueSchema = z.object({
 export type GetActiveContextInput = z.infer<typeof GetActiveContextSchema>;
 export type GetCompTreeInput = z.infer<typeof GetCompTreeSchema>;
 export type GetLayerInfoInput = z.infer<typeof GetLayerInfoSchema>;
+export type FindProjectItemInput = z.infer<typeof FindProjectItemSchema>;
 export type ApplyExpressionInput = z.infer<typeof ApplyExpressionSchema>;
 export type CreateSolidLayerInput = z.infer<typeof CreateSolidLayerSchema>;
 export type ExecuteRawJsxInput = z.infer<typeof ExecuteRawJsxSchema>;
@@ -179,10 +255,13 @@ export type CloneCompStructureInput = z.infer<typeof CloneCompStructureSchema>;
 export type SetTransformInput = z.infer<typeof SetTransformSchema>;
 export type CreateNullLayerInput = z.infer<typeof CreateNullLayerSchema>;
 export type SetLayerParentInput = z.infer<typeof SetLayerParentSchema>;
+export type ReorderLayersInput = z.infer<typeof ReorderLayersSchema>;
+export type SetLayerSwitchesInput = z.infer<typeof SetLayerSwitchesSchema>;
 export type CreateTextLayerInput = z.infer<typeof CreateTextLayerSchema>;
 export type BatchRenameLayersInput = z.infer<typeof BatchRenameLayersSchema>;
 export type AddEffectInput = z.infer<typeof AddEffectSchema>;
 export type AddKeyframesBatchInput = z.infer<typeof AddKeyframesBatchSchema>;
 export type PrecomposeLayersInput = z.infer<typeof PrecomposeLayersSchema>;
 export type CreateCompositionInput = z.infer<typeof CreateCompositionSchema>;
+export type DeleteCompositionInput = z.infer<typeof DeleteCompositionSchema>;
 export type SetPropertyValueInput = z.infer<typeof SetPropertyValueSchema>;
